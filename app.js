@@ -22,14 +22,54 @@ const memories=[
 for(const [file,caption,note] of memories){const figure=document.createElement('figure');figure.className='polaroid memory reveal';const video=file.endsWith('.mp4');const media=document.createElement(video?'video':'img');media.src=assets+file;if(video){media.controls=true;media.playsInline=true;media.preload='metadata';media.setAttribute('aria-label',caption);media.addEventListener('play',()=>document.querySelectorAll('video').forEach(v=>{if(v!==media)v.pause()}));}else{media.alt=caption;media.loading='lazy';}figure.append(media);const fc=document.createElement('figcaption');fc.append(caption);const small=document.createElement('small');small.textContent=note;fc.append(small);figure.append(fc);$('#memory-gallery').append(figure);}
 const observer='IntersectionObserver' in window?new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');observer.unobserve(e.target)}}),{threshold:.12}):null;
 function observe(){document.querySelectorAll('.reveal').forEach(el=>observer?observer.observe(el):el.classList.add('visible'))}
-const tracks={love:{label:'love. · wave to earth',embed:'https://www.youtube.com/embed/Q49pnA4jsp8?playsinline=1',link:'https://www.youtube.com/watch?v=Q49pnA4jsp8',title:'love. by wave to earth'},iced:{label:'Iced Coffee o Mango Shake · Hev Abi',embed:'https://open.spotify.com/embed/track/39assa5oU06bAJKZhk1N6S?utm_source=generator&theme=0',link:'https://open.spotify.com/track/39assa5oU06bAJKZhk1N6S',title:'Iced Coffee o Mango Shake by Hev Abi'}};
+const tracks={love:{label:'love. · wave to earth',src:'assets/audio/love.mp3'},iced:{label:'Iced Coffee o Mango Shake · Hev Abi',src:'assets/audio/iced-coffee-o-mango-shake.mp3'}};
+const soundtrack=$('#soundtrack');
 let currentTrack='love';
-function chooseTrack(key,autoplay=false){const track=tracks[key];if(!track)return;currentTrack=key;const frame=$('#music-panel iframe');frame.title=track.title;frame.src=track.embed+(autoplay&&key==='love'?'&autoplay=1':'');$('#now-playing').textContent='Now playing: '+track.label;$('#song-link').href=track.link;document.querySelectorAll('.track-choice').forEach(button=>{const active=button.dataset.track===key;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active))})}
-function startMusic(){chooseTrack('love',true);$('#music-panel').hidden=false;$('#music-toggle').setAttribute('aria-expanded','true');$('#autoplay-note').style.opacity='0';setTimeout(()=>$('#autoplay-note').hidden=true,450)}
+soundtrack.volume=0.65;
+function updateMusicLabel(){
+  $('#now-playing').textContent=(soundtrack.paused?'Paused: ':'Now playing: ')+tracks[currentTrack].label;
+}
+function playMusic(){
+  $('#music-status').textContent='';
+  const playing=soundtrack.play();
+  if(playing)playing.catch(error=>{
+    if(error.name==='AbortError')return;
+    $('#music-status').textContent='Tap play below to start the music ♫';
+    music(true);
+  });
+}
+function chooseTrack(key,autoplay=true){
+  const track=tracks[key];if(!track)return;
+  if(currentTrack!==key){currentTrack=key;soundtrack.src=track.src;soundtrack.load();}
+  document.querySelectorAll('.track-choice').forEach(button=>{
+    const active=button.dataset.track===key;
+    button.classList.toggle('active',active);
+    button.setAttribute('aria-pressed',String(active));
+  });
+  updateMusicLabel();
+  if(autoplay)playMusic();
+}
+soundtrack.addEventListener('play',()=>{
+  updateMusicLabel();$('#music-status').textContent='';$('#autoplay-note').hidden=true;
+});
+soundtrack.addEventListener('pause',updateMusicLabel);
+soundtrack.addEventListener('error',()=>{
+  $('#music-status').textContent='The song couldn’t load. Try choosing it again or refresh the page.';
+});
+function startMusic(){
+  chooseTrack(currentTrack,true);
+  $('#autoplay-note').hidden=true;
+}
 $('#begin').addEventListener('click',()=>{startMusic();$('#welcome').hidden=true;$('#lock').hidden=false;$('#lock').scrollIntoView();$('#code').focus({preventScroll:true})});
 $('#unlock-form').addEventListener('submit',e=>{e.preventDefault();if($('#code').value==='0817'){$('#lock').hidden=true;$('#story').hidden=false;observe();$('#beginning').scrollIntoView();}else{$('#code-message').textContent='Almost, Frances ♡ Think August 17: month first, then day.';$('#code').setAttribute('aria-invalid','true');$('#code').select();}});
 const dialog=$('#photo-dialog');document.querySelectorAll('.polaroid img').forEach(img=>{img.classList.add('zoom');img.tabIndex=0;img.setAttribute('role','button');img.setAttribute('aria-label','Enlarge: '+img.alt);const open=()=>{dialog.querySelector('img').src=img.src;dialog.querySelector('img').alt=img.alt;dialog.querySelector('p').textContent=img.parentElement.querySelector('figcaption,span')?.textContent||img.alt;dialog.showModal()};img.addEventListener('click',open);img.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open()}})});$('#close-photo').onclick=()=>dialog.close();dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close()});
-function music(open){$('#music-panel').hidden=!open;$('#music-toggle').setAttribute('aria-expanded',String(open));if(open){const frame=$('#music-panel iframe');if(!frame.src)chooseTrack(currentTrack)}}$('#music-toggle').onclick=()=>music($('#music-panel').hidden);$('#music-close').onclick=()=>music(false);document.querySelectorAll('.track-choice').forEach(button=>button.onclick=()=>chooseTrack(button.dataset.track));
+function music(open){$('#music-panel').hidden=!open;$('#music-toggle').setAttribute('aria-expanded',String(open))}
+$('#music-toggle').onclick=()=>music($('#music-panel').hidden);
+$('#music-close').onclick=()=>music(false);
+document.querySelectorAll('.track-choice').forEach(button=>{
+  button.setAttribute('aria-pressed',String(button.dataset.track===currentTrack));
+  button.onclick=()=>chooseTrack(button.dataset.track);
+});
 $('#open-letter').onclick=()=>{const letter=$('#question-letter');const opening=letter.hidden;letter.hidden=!opening;$('#open-letter').classList.toggle('opened',opening);$('#open-letter').setAttribute('aria-expanded',String(opening));if(opening)setTimeout(()=>letter.scrollIntoView({behavior:'smooth',block:'center'}),180)};
 $('#yes').onclick=()=>{const a=$('#answer');a.hidden=false;a.textContent='You just made me smile so much, Frances. ♡ Here’s to more coffee, more little moments, and this new chapter with you. Tell me your answer in person or send me a message—I want to hear it from you.';if(!matchMedia('(prefers-reduced-motion: reduce)').matches){for(let i=0;i<35;i++){const heart=document.createElement('span');heart.className='confetti';heart.textContent='♡';heart.style.left=Math.random()*100+'vw';heart.style.fontSize=18+Math.random()*25+'px';heart.style.animationDelay=Math.random()*1.5+'s';document.body.append(heart);setTimeout(()=>heart.remove(),6000)}}a.scrollIntoView({block:'center'})};
 $('#talk').onclick=()=>{const a=$('#answer');a.hidden=false;a.textContent='Aray ko po, sad ako niyannn—jokeee 😭 Pero okay lang, I’m only playing with you. Take all the time you need—your honest answer will always matter more to me. ♡';if(!matchMedia('(prefers-reduced-motion: reduce)').matches){const drops=['🥺','😭','☁️'];for(let i=0;i<24;i++){const drop=document.createElement('span');drop.className='confetti sad-drop';drop.textContent=drops[i%drops.length];drop.style.left=Math.random()*100+'vw';drop.style.fontSize=18+Math.random()*22+'px';drop.style.animationDelay=Math.random()*1.2+'s';document.body.append(drop);setTimeout(()=>drop.remove(),6000)}}a.scrollIntoView({block:'center'})};
